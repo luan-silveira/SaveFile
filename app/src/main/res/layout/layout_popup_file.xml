@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="15dp"
+    tools:ignore="HardcodedText">
+
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/inputNomeArquivo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <com.google.android.material.textfield.TextInputEditText android:id="@+id/edNomeArquivo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Nome do arquivo" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+
+    <ImageButton android:id="@+id/btVoltarPasta"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/inputNomeArquivo"
+        android:layout_marginTop="15dp"
+        android:background="@drawable/ic_back" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/listViewArquivos"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:layout_below="@id/btVoltarPasta"
+        tools:listitem="@layout/layout_item_file" />
+
+
+    <Button android:id="@+id/btCancelar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginTop="10dp"
+        style="@style/Widget.AppCompat.Button.ButtonBar.AlertDialog"
+        android:text="Cancelar"/>
+
+    <Button android:id="@+id/btSalvar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginTop="10dp"
+        style="@style/Widget.AppCompat.Button.ButtonBar.AlertDialog"
+        android:text="Salvar"/>
+
+</RelativeLayout>

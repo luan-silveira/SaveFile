@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:orientation="vertical" android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="5dp"
+    android:clickable="true"
+    android:focusable="true"
+    tools:ignore="HardcodedText">
+
+    <ImageView android:id="@+id/imgIcone"
+        android:layout_width="35dp"
+        android:layout_height="wrap_content"
+        android:layout_alignTop="@id/txtNomeArquivo"
+        android:layout_alignBottom="@id/txtDataModificacao"
+        android:src="@drawable/ic_directory"
+        android:layout_marginEnd="10dp"/>
+
+    <TextView android:id="@+id/txtNomeArquivo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_toEndOf="@id/imgIcone"
+        android:text="Nome do arquivo"
+        android:textSize="17sp"
+        android:textColor="#333333" />
+
+    <TextView android:id="@+id/txtDataModificacao"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="13.5sp"
+        android:layout_marginTop="3dp"
+        android:layout_below="@+id/txtNomeArquivo"
+        android:layout_alignStart="@id/txtNomeArquivo"
+        android:text="01/01/2000 00:00:30"/>
+
+</RelativeLayout>
