@@ -28,14 +28,35 @@
         android:onClick="btVoltarPastaClick"
         android:background="@drawable/ic_back" />
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/listViewArquivos"
+    <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
         android:layout_below="@id/btVoltarPasta"
-        android:layout_above="@id/btSalvar"
-        tools:listitem="@layout/layout_item_file"/>
+        android:layout_above="@id/btSalvar">
+
+        <TextView
+            android:id="@+id/txtPastaVazia"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Pasta vazia"
+            android:layout_centerHorizontal="true"
+            android:layout_centerVertical="true"
+            android:visibility="gone"
+            android:textAlignment="center"/>
+
+
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/listViewArquivos"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+
+            tools:listitem="@layout/layout_item_file"/>
+
+    </RelativeLayout>
+
+
 
 
     <Button android:id="@+id/btCancelar"

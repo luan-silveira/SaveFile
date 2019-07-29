@@ -11,6 +11,7 @@ import android.view.View;
 import android.webkit.MimeTypeMap;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -40,6 +41,7 @@ public class MainActivity extends AppCompatActivity {
     private AdapterFileRecycler adapterFile;
     private EditText edNomeArquivo;
     private ImageButton btVoltarPasta;
+    private TextView txtPastaVazia;
     private File diretorioAtual;
     private Uri uri;
     private File[] files;
@@ -51,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
 
         listViewArquivos = findViewById(R.id.listViewArquivos);
         edNomeArquivo = findViewById(R.id.edNomeArquivo);
+        txtPastaVazia = findViewById(R.id.txtPastaVazia);
 
         if (Permissoes.isPermissoesConcedidas(this, PERMISSOES)) {
             listarArquivos();
@@ -75,13 +78,14 @@ public class MainActivity extends AppCompatActivity {
 
     private void listarArquivos(){
         diretorioAtual = Environment.getExternalStorageDirectory();
-        files = diretorioAtual.listFiles();
+        files = getArquivos(diretorioAtual);
         RecyclerView.LayoutManager manager = new LinearLayoutManager(this);
         listViewArquivos.setLayoutManager(manager);
         adapterFile = new AdapterFileRecycler(this, files);
         listViewArquivos.addItemDecoration(new DividerItemDecoration(this, DividerItemDecoration.VERTICAL));
 
         listViewArquivos.setAdapter(adapterFile);
+        mostrarTextoPastaVazia(files.length == 0);
 
         btVoltarPasta = findViewById(R.id.btVoltarPasta);
 
@@ -96,10 +100,19 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private void mostrarTextoPastaVazia(boolean mostrar){
+        txtPastaVazia.setVisibility(mostrar ? View.VISIBLE : View.GONE);
+    }
+
+    private File[] getArquivos(File directory){
+        return directory.listFiles() == null ? new File[]{} : directory.listFiles();
+    }
+
     public void atualizarListaArquivos(File directory) {
         diretorioAtual = directory;
-        this.files = directory.listFiles();
+        this.files = getArquivos(directory);
         adapterFile.atualizarLista(files);
+        mostrarTextoPastaVazia(files.length == 0);
     }
 
     @Override
