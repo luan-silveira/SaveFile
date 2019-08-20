@@ -1,19 +1,19 @@
 package br.com.luansilveira.savefile.utils;
 
 import android.content.Context;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
+import android.graphics.drawable.Drawable;
 import android.media.ThumbnailUtils;
-import android.net.Uri;
 import android.provider.MediaStore;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.webkit.MimeTypeMap;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -21,22 +21,28 @@ import com.squareup.picasso.Picasso;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 import br.com.luansilveira.savefile.R;
 
 public class AdapterFileRecycler extends RecyclerView.Adapter<AdapterFileRecycler.ViewHolder> {
 
-    private final int SIZE_THUMB = 120;
     private Context context;
-    private File[] files;
+    private List<Arquivo> arquivos;
     private SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss", new Locale("pt", "BR"));
     private OnItemClickListener listener;
 
-    public AdapterFileRecycler(Context context, File[] files) {
+    public AdapterFileRecycler(Context context, Arquivo[] arquivos) {
         this.context = context;
-        this.files = files;
+        this.arquivos = Arrays.asList(arquivos);
+    }
+
+    public AdapterFileRecycler(Context context, List<Arquivo> arquivos) {
+        this.context = context;
+        this.arquivos = arquivos;
     }
 
     @NonNull
@@ -49,75 +55,84 @@ public class AdapterFileRecycler extends RecyclerView.Adapter<AdapterFileRecycle
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         holder.position = position;
-        File file = this.files[position];
-        String extension = MimeTypeMap.getFileExtensionFromUrl(Uri.fromFile(file).toString());
-        String mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
+        Arquivo arquivo = this.arquivos.get(position);
+        long time = System.currentTimeMillis();
 
-        if (file != null) {
-            holder.txtNomeArquivo.setText(file.getName());
-            Date dataModificacao = new Date((file.lastModified()));
+        if (arquivo != null) {
+            Log.i("AdapterFile", "Lendo arquivo " + arquivo.getName());
+            holder.txtNomeArquivo.setText(arquivo.getName());
+            Date dataModificacao = new Date((arquivo.lastModified()));
             holder.txtDataModificacao.setText(dateFormat.format(dataModificacao));
-            if (file.isDirectory()) {
-                holder.imgIcone.setImageResource(R.drawable.ic_directory);
-            } else {
-                int icon = R.drawable.ic_unknown_file;
-                if (mimeType != null) {
-                    switch (mimeType.substring(0, mimeType.indexOf("/"))) {
-                        case "audio":
-                            icon = R.drawable.ic_audio_file;
-                            break;
-                        case "text":
-                            icon = R.drawable.ic_text_file;
-                            break;
-                        case "image":
-                            icon = R.drawable.ic_image_file;
-                            Picasso.get().load(file).into(holder.imgIcone);
-                            break;
-                        case "video":
-                            icon = R.drawable.ic_video_file;
-                    }
+            holder.imgIcone.setImageResource(arquivo.getIcone());
 
+            String extension = arquivo.getExtension();
+            String mimeType = arquivo.getMimeType();
+            if ("apk".equals(extension)) {
+                holder.imgIcone.setImageDrawable(getIconFromApk(arquivo));
+            } else if (mimeType != null) {
+                if (mimeType.contains("image/")) {
+                    Picasso.get().load(arquivo).into(holder.imgIcone);
+                } else if (mimeType.contains("video/")) {
+//                    Log.i("AdapterFile", "Gerando thumbnail vídeo");
+//                    holder.imgIcone.setImageBitmap(getVideoThumbnail(arquivo));
+//                    Log.i("AdapterFile", "Thumbnail vídeo gerada");
+                    loadVideoThumbnail(arquivo, holder.imgIcone, position);
                 }
-                holder.imgIcone.setImageResource(icon);
             }
+            Log.i("AdapterFile", String.format("Leitura finalizada em %d ms", System.currentTimeMillis() - time));
         }
+    }
+
+    private Drawable getIconFromApk(Arquivo arquivo) {
+        String apkFilePath = arquivo.getAbsolutePath();
+        PackageManager pm = context.getPackageManager();
+        PackageInfo pi = pm.getPackageArchiveInfo(apkFilePath, 0);
+
+        pi.applicationInfo.sourceDir = apkFilePath;
+        pi.applicationInfo.publicSourceDir = apkFilePath;
+
+        return pi.applicationInfo.loadIcon(pm);
     }
 
     private Bitmap getVideoThumbnail(File file) {
         return ThumbnailUtils.createVideoThumbnail(file.getAbsolutePath(), MediaStore.Images.Thumbnails.MINI_KIND);
     }
 
-    private Bitmap getThumbnail(@DrawableRes int res) {
-        Bitmap bmp = BitmapFactory.decodeResource(context.getResources(), res);
-        return getThumbnail(bmp);
-    }
-
-    private Bitmap getThumbnail(Bitmap bmp) {
-        return ThumbnailUtils.extractThumbnail(bmp, SIZE_THUMB, SIZE_THUMB);
-    }
-
-
-    @Override
-    public int getItemCount() {
-        return files.length;
-    }
-
-    public void atualizarLista(File[] files) {
-        this.files = files;
-        this.notifyDataSetChanged();
-    }
-
-    public File getItemAtPosition(int position) {
-        try {
-            return files[position];
-        } catch (Exception e) {
-            return null;
+    private void loadVideoThumbnail(Arquivo file, ImageView imageView, int position) {
+        String filename = file.getAbsolutePath();
+        Bitmap bitmap = ImageCache.getCache().getFromCache(filename);
+        if (bitmap != null) {
+            imageView.setImageBitmap(bitmap);
+        } else {
+            imageView.setImageResource(R.drawable.ic_video_file);
+            new ThumbnailTask(filename).setOnLoadListener(b -> {
+                imageView.setImageBitmap(b);
+                notifyItemChanged(position);
+            }).execute();
         }
     }
 
-    public AdapterFileRecycler setOnItemClickListener(OnItemClickListener listener) {
+    @Override
+    public int getItemCount() {
+        return arquivos.size();
+    }
+
+    public void atualizarLista(Arquivo[] files) {
+        this.arquivos = Arrays.asList(files);
+        this.notifyDataSetChanged();
+    }
+
+    public void atualizarLista(List<Arquivo> files) {
+        this.arquivos = files;
+        this.notifyDataSetChanged();
+    }
+
+    public Arquivo getItemAtPosition(int position) {
+        return arquivos.get(position);
+    }
+
+    public void setOnItemClickListener(OnItemClickListener listener) {
         this.listener = listener;
-        return this;
     }
 
     public interface OnItemClickListener {

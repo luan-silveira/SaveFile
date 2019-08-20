@@ -13,38 +13,49 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <com.google.android.material.textfield.TextInputEditText android:id="@+id/edNomeArquivo"
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/edNomeArquivo"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="Nome do arquivo" />
     </com.google.android.material.textfield.TextInputLayout>
 
 
-    <ImageButton android:id="@+id/btVoltarPasta"
+    <ImageButton
+        android:id="@+id/btVoltarPasta"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@id/inputNomeArquivo"
         android:layout_marginTop="15dp"
-        android:onClick="btVoltarPastaClick"
-        android:background="@drawable/ic_back" />
+        android:background="@drawable/ic_back"
+        android:onClick="btVoltarPastaClick" />
+
+    <ImageButton
+        android:id="@+id/btHome"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/inputNomeArquivo"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="15dp"
+        android:background="@drawable/ic_home_black_24dp"
+        android:onClick="btHomeClick" />
 
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
+        android:layout_above="@id/btSalvar"
         android:layout_below="@id/btVoltarPasta"
-        android:layout_above="@id/btSalvar">
+        android:layout_marginTop="10dp">
 
         <TextView
             android:id="@+id/txtPastaVazia"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Pasta vazia"
             android:layout_centerHorizontal="true"
             android:layout_centerVertical="true"
-            android:visibility="gone"
-            android:textAlignment="center"/>
-
+            android:text="Pasta vazia"
+            android:textAlignment="center"
+            android:visibility="gone" />
 
 
         <androidx.recyclerview.widget.RecyclerView
@@ -52,31 +63,30 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
 
-            tools:listitem="@layout/layout_item_file"/>
+            tools:listitem="@layout/layout_item_file" />
 
     </RelativeLayout>
 
-
-
-
-    <Button android:id="@+id/btCancelar"
+    <Button
+        android:id="@+id/btCancelar"
+        style="@style/Widget.AppCompat.Button.ButtonBar.AlertDialog"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentStart="true"
         android:layout_alignParentBottom="true"
         android:layout_marginTop="10dp"
-        style="@style/Widget.AppCompat.Button.ButtonBar.AlertDialog"
         android:onClick="btCancelarClick"
-        android:text="Cancelar"/>
+        android:text="Cancelar" />
 
-    <Button android:id="@+id/btSalvar"
+    <Button
+        android:id="@+id/btSalvar"
+        style="@style/Widget.AppCompat.Button.ButtonBar.AlertDialog"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentEnd="true"
         android:layout_alignParentBottom="true"
         android:layout_marginTop="10dp"
         android:onClick="btSalvarClick"
-        style="@style/Widget.AppCompat.Button.ButtonBar.AlertDialog"
-        android:text="Salvar"/>
+        android:text="Salvar" />
 
 </RelativeLayout>

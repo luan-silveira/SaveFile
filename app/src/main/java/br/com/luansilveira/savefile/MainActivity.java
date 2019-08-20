@@ -1,7 +1,6 @@
 package br.com.luansilveira.savefile;
 
 import android.Manifest;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -20,18 +19,18 @@ import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStreamWriter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 import br.com.luansilveira.savefile.utils.AdapterFileRecycler;
+import br.com.luansilveira.savefile.utils.Arquivo;
 import br.com.luansilveira.savefile.utils.Permissoes;
 
 public class MainActivity extends AppCompatActivity {
@@ -42,9 +41,9 @@ public class MainActivity extends AppCompatActivity {
     private EditText edNomeArquivo;
     private ImageButton btVoltarPasta;
     private TextView txtPastaVazia;
-    private File diretorioAtual;
+    private Arquivo diretorioAtual;
     private Uri uri;
-    private File[] files;
+    private List<Arquivo> arquivos = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
 
             Intent intent = getIntent();
 
-            if (Intent.ACTION_SEND.equals(intent.getAction())){
+            if (Intent.ACTION_SEND.equals(intent.getAction())) {
                 this.uri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
                 File arquivo = new File(uri.getPath());
 
@@ -72,25 +71,24 @@ public class MainActivity extends AppCompatActivity {
                 edNomeArquivo.setSelection(0, nome.length());
                 edNomeArquivo.requestFocus();
             }
-        }
-        else Permissoes.solicitarPermissoes(this, PERMISSOES);
+        } else Permissoes.solicitarPermissoes(this, PERMISSOES);
     }
 
-    private void listarArquivos(){
-        diretorioAtual = Environment.getExternalStorageDirectory();
-        files = getArquivos(diretorioAtual);
+    private void listarArquivos() {
+        diretorioAtual = new Arquivo(Environment.getExternalStorageDirectory());
+        arquivos = getArquivos(diretorioAtual);
         RecyclerView.LayoutManager manager = new LinearLayoutManager(this);
         listViewArquivos.setLayoutManager(manager);
-        adapterFile = new AdapterFileRecycler(this, files);
+        adapterFile = new AdapterFileRecycler(this, arquivos);
         listViewArquivos.addItemDecoration(new DividerItemDecoration(this, DividerItemDecoration.VERTICAL));
 
         listViewArquivos.setAdapter(adapterFile);
-        mostrarTextoPastaVazia(files.length == 0);
+        mostrarTextoPastaVazia(arquivos.size() == 0);
 
         btVoltarPasta = findViewById(R.id.btVoltarPasta);
 
         adapterFile.setOnItemClickListener((position) -> {
-            File file = adapterFile.getItemAtPosition(position);
+            Arquivo file = adapterFile.getItemAtPosition(position);
             if (file.isDirectory()) {
                 atualizarListaArquivos(file);
             } else {
@@ -100,24 +98,36 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void mostrarTextoPastaVazia(boolean mostrar){
+
+    private void mostrarTextoPastaVazia(boolean mostrar) {
         txtPastaVazia.setVisibility(mostrar ? View.VISIBLE : View.GONE);
     }
 
-    private File[] getArquivos(File directory){
-        return directory.listFiles() == null ? new File[]{} : directory.listFiles();
+    private List<Arquivo> getArquivos(File directory) {
+        List<Arquivo> list = new ArrayList<>();
+        File[] files = directory.listFiles();
+        if (files != null) {
+
+            for (File file : files) {
+                list.add(new Arquivo(file));
+            }
+        }
+
+        Collections.sort(list, (o1, o2) -> o1.getName().compareTo(o2.getName()));
+
+        return list;
     }
 
-    public void atualizarListaArquivos(File directory) {
+    public void atualizarListaArquivos(Arquivo directory) {
         diretorioAtual = directory;
-        this.files = getArquivos(directory);
-        adapterFile.atualizarLista(files);
-        mostrarTextoPastaVazia(files.length == 0);
+        this.arquivos = getArquivos(directory);
+        adapterFile.atualizarLista(arquivos);
+        mostrarTextoPastaVazia(arquivos.size() == 0);
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        for (int result : grantResults){
+        for (int result : grantResults) {
             if (result == PackageManager.PERMISSION_DENIED) return;
         }
 
@@ -150,9 +160,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void btVoltarPastaClick(View view) {
-        File file = diretorioAtual.getParentFile();
-        if (file != null && file.isDirectory()) {
-            atualizarListaArquivos(file);
+        Arquivo arquivo = diretorioAtual.getParentFile();
+        if (arquivo != null && arquivo.isDirectory()) {
+            atualizarListaArquivos(arquivo);
         }
     }
 
@@ -172,5 +182,10 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return byteArrayOutputStream.toByteArray();
+    }
+
+    public void btHomeClick(View view) {
+        diretorioAtual = new Arquivo(Environment.getExternalStorageDirectory());
+        atualizarListaArquivos(diretorioAtual);
     }
 }
