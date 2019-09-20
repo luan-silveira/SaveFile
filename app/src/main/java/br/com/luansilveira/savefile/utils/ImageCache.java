@@ -31,6 +31,7 @@ public class ImageCache extends LruCache<String, Bitmap> {
     }
 
     protected void addToCache(String key, Bitmap bitmap) {
+        if (key == null || bitmap == null) return;
         if (this.get(key) == null) this.put(key, bitmap);
     }
 

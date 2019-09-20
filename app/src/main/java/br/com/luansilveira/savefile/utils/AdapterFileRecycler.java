@@ -6,8 +6,8 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.media.ThumbnailUtils;
+import android.os.AsyncTask;
 import android.provider.MediaStore;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -59,27 +59,24 @@ public class AdapterFileRecycler extends RecyclerView.Adapter<AdapterFileRecycle
         long time = System.currentTimeMillis();
 
         if (arquivo != null) {
-            Log.i("AdapterFile", "Lendo arquivo " + arquivo.getName());
             holder.txtNomeArquivo.setText(arquivo.getName());
             Date dataModificacao = new Date((arquivo.lastModified()));
             holder.txtDataModificacao.setText(dateFormat.format(dataModificacao));
             holder.imgIcone.setImageResource(arquivo.getIcone());
+            holder.imgIcone.setImageAlpha(arquivo.isHidden() ? 127 : 255);
 
             String extension = arquivo.getExtension();
             String mimeType = arquivo.getMimeType();
             if ("apk".equals(extension)) {
-                holder.imgIcone.setImageDrawable(getIconFromApk(arquivo));
+                Drawable img = getIconFromApk(arquivo);
+                if (img != null) holder.imgIcone.setImageDrawable(img);
             } else if (mimeType != null) {
                 if (mimeType.contains("image/")) {
                     Picasso.get().load(arquivo).into(holder.imgIcone);
                 } else if (mimeType.contains("video/")) {
-//                    Log.i("AdapterFile", "Gerando thumbnail vídeo");
-//                    holder.imgIcone.setImageBitmap(getVideoThumbnail(arquivo));
-//                    Log.i("AdapterFile", "Thumbnail vídeo gerada");
-                    loadVideoThumbnail(arquivo, holder.imgIcone, position);
+                    loadVideoThumbnail(arquivo, holder, position);
                 }
             }
-            Log.i("AdapterFile", String.format("Leitura finalizada em %d ms", System.currentTimeMillis() - time));
         }
     }
 
@@ -88,27 +85,32 @@ public class AdapterFileRecycler extends RecyclerView.Adapter<AdapterFileRecycle
         PackageManager pm = context.getPackageManager();
         PackageInfo pi = pm.getPackageArchiveInfo(apkFilePath, 0);
 
-        pi.applicationInfo.sourceDir = apkFilePath;
-        pi.applicationInfo.publicSourceDir = apkFilePath;
+        if (pi != null) {
+            pi.applicationInfo.sourceDir = apkFilePath;
+            pi.applicationInfo.publicSourceDir = apkFilePath;
 
-        return pi.applicationInfo.loadIcon(pm);
+            return pi.applicationInfo.loadIcon(pm);
+        }
+
+        return null;
     }
 
     private Bitmap getVideoThumbnail(File file) {
         return ThumbnailUtils.createVideoThumbnail(file.getAbsolutePath(), MediaStore.Images.Thumbnails.MINI_KIND);
     }
 
-    private void loadVideoThumbnail(Arquivo file, ImageView imageView, int position) {
+    private void loadVideoThumbnail(Arquivo file, ViewHolder holder, int position) {
         String filename = file.getAbsolutePath();
         Bitmap bitmap = ImageCache.getCache().getFromCache(filename);
         if (bitmap != null) {
-            imageView.setImageBitmap(bitmap);
+            holder.imgIcone.setImageBitmap(bitmap);
         } else {
-            imageView.setImageResource(R.drawable.ic_video_file);
-            new ThumbnailTask(filename).setOnLoadListener(b -> {
-                imageView.setImageBitmap(b);
+            holder.imgIcone.setImageResource(R.drawable.ic_video_file);
+            holder.videoThumbTask = new ThumbnailTask(filename).setOnLoadListener(b -> {
+                holder.imgIcone.setImageBitmap(b);
                 notifyItemChanged(position);
-            }).execute();
+            });
+            holder.videoThumbTask.execute();
         }
     }
 
@@ -139,11 +141,21 @@ public class AdapterFileRecycler extends RecyclerView.Adapter<AdapterFileRecycle
         void onClick(int position);
     }
 
+    @Override
+    public void onViewDetachedFromWindow(@NonNull ViewHolder holder) {
+        if (holder.videoThumbTask != null) {
+            if (holder.videoThumbTask.getStatus() == AsyncTask.Status.RUNNING)
+                holder.videoThumbTask.cancel(true);
+        }
+        super.onViewDetachedFromWindow(holder);
+    }
+
     public static class ViewHolder extends RecyclerView.ViewHolder {
         int position;
         ImageView imgIcone;
         TextView txtNomeArquivo;
         TextView txtDataModificacao;
+        ThumbnailTask videoThumbTask;
 
         private OnItemClickListener listener;
 

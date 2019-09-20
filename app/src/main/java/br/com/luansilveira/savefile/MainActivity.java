@@ -45,6 +45,8 @@ public class MainActivity extends AppCompatActivity {
     private Uri uri;
     private List<Arquivo> arquivos = new ArrayList<>();
 
+    private int parentScrollPosition = 0;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -53,6 +55,7 @@ public class MainActivity extends AppCompatActivity {
         listViewArquivos = findViewById(R.id.listViewArquivos);
         edNomeArquivo = findViewById(R.id.edNomeArquivo);
         txtPastaVazia = findViewById(R.id.txtPastaVazia);
+        listViewArquivos.setHasFixedSize(true);
 
         if (Permissoes.isPermissoesConcedidas(this, PERMISSOES)) {
             listarArquivos();
@@ -91,6 +94,8 @@ public class MainActivity extends AppCompatActivity {
             Arquivo file = adapterFile.getItemAtPosition(position);
             if (file.isDirectory()) {
                 atualizarListaArquivos(file);
+                this.parentScrollPosition = position;
+                listViewArquivos.scrollToPosition(0);
             } else {
                 edNomeArquivo.setText(file.getName());
                 edNomeArquivo.setSelection(edNomeArquivo.length());
@@ -163,6 +168,7 @@ public class MainActivity extends AppCompatActivity {
         Arquivo arquivo = diretorioAtual.getParentFile();
         if (arquivo != null && arquivo.isDirectory()) {
             atualizarListaArquivos(arquivo);
+            listViewArquivos.scrollToPosition(this.parentScrollPosition);
         }
     }
 
