@@ -46,6 +46,12 @@ public class Arquivo extends File {
             this.extension = MimeTypeMap.getFileExtensionFromUrl(Uri.fromFile(this).toString());
             this.mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
             this.icone = R.drawable.ic_unknown_file;
+            if (extension == null || extension.trim().isEmpty()) this.extension = getName().substring(getName().lastIndexOf(".") + 1);
+
+            if ("pdf".equals(extension.toLowerCase())){
+                this.icone = R.drawable.ic_icon_pdf;
+                return;
+            }
 
             if (mimeType != null) {
                 switch (mimeType.substring(0, mimeType.indexOf("/"))) {

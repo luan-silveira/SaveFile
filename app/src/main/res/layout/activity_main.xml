@@ -87,6 +87,7 @@
         android:layout_alignParentBottom="true"
         android:layout_marginTop="10dp"
         android:onClick="btSalvarClick"
+        android:enabled="false"
         android:text="Salvar" />
 
 </RelativeLayout>

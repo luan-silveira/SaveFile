@@ -9,11 +9,14 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.webkit.MimeTypeMap;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.RadioButton;
@@ -63,6 +66,7 @@ public class MainActivity extends AppCompatActivity {
     private ImageButton btVoltarPasta;
     private TextView txtPastaVazia;
     private Arquivo diretorioAtual;
+    private Button btSalvar;
     private Uri uri;
     private List<Arquivo> arquivos = new ArrayList<>();
     private int parentScrollPosition = 0;
@@ -95,6 +99,8 @@ public class MainActivity extends AppCompatActivity {
                 .setView(viewPopup)
                 .create();
 
+        btSalvar = findViewById(R.id.btSalvar);
+
         if (Permissoes.isPermissoesConcedidas(this, PERMISSOES)) {
             listarArquivos();
 
@@ -113,8 +119,26 @@ public class MainActivity extends AppCompatActivity {
                 edNomeArquivo.setText(nomeCompleto);
                 edNomeArquivo.setSelection(0, nome.length());
                 edNomeArquivo.requestFocus();
+                btSalvar.setEnabled(true);
             }
         } else Permissoes.solicitarPermissoes(this, PERMISSOES);
+
+        edNomeArquivo.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                btSalvar.setEnabled(uri != null && !s.toString().isEmpty());
+            }
+        });
     }
 
     @Override
