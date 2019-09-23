@@ -40,12 +40,11 @@ public class Arquivo extends File {
     }
 
     public void getExtensionAndMimeType() {
-        this.extension = MimeTypeMap.getFileExtensionFromUrl(Uri.fromFile(this).toString());
-        this.mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
-
         if (isDirectory()) {
             this.icone = R.drawable.ic_directory;
         } else {
+            this.extension = MimeTypeMap.getFileExtensionFromUrl(Uri.fromFile(this).toString());
+            this.mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
             this.icone = R.drawable.ic_unknown_file;
 
             if (mimeType != null) {
@@ -80,7 +79,7 @@ public class Arquivo extends File {
 
     @Override
     public Arquivo getParentFile() {
-        return new Arquivo(super.getParentFile());
+        return super.getParentFile() == null ? null : new Arquivo(super.getParentFile());
     }
 
 }

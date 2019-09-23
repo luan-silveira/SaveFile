@@ -1,19 +1,28 @@
 package br.com.luansilveira.savefile;
 
 import android.Manifest;
+import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.webkit.MimeTypeMap;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -36,6 +45,18 @@ import br.com.luansilveira.savefile.utils.Permissoes;
 public class MainActivity extends AppCompatActivity {
 
     public static final String[] PERMISSOES = {Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE};
+
+    private final String TAG = "SaveFile";
+    private final String FILE_PREFS = "filePrefs";
+
+    private final String ORDER_BY_NAME = "N";
+    private final String ORDER_BY_SIZE = "S";
+    private final String ORDER_BY_TYPE = "T";
+    private final String ORDER_BY_MODIFIED = "M";
+
+    private final String ORDER_ASC = "asc";
+    private final String ORDER_DESC = "desc";
+
     private RecyclerView listViewArquivos;
     private AdapterFileRecycler adapterFile;
     private EditText edNomeArquivo;
@@ -44,8 +65,14 @@ public class MainActivity extends AppCompatActivity {
     private Arquivo diretorioAtual;
     private Uri uri;
     private List<Arquivo> arquivos = new ArrayList<>();
-
     private int parentScrollPosition = 0;
+    private String orderBy;
+    private String orderDirection;
+    private boolean showHidden = false;
+
+    private AlertDialog popup;
+    private RadioGroup rgOrdenar;
+    private RadioGroup rgOrdem;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,6 +84,17 @@ public class MainActivity extends AppCompatActivity {
         txtPastaVazia = findViewById(R.id.txtPastaVazia);
         listViewArquivos.setHasFixedSize(true);
 
+        carregarPreferencias();
+
+        View viewPopup = LayoutInflater.from(this).inflate(R.layout.layout_ordernar, null);
+        rgOrdenar = viewPopup.findViewById(R.id.rgOrdenar);
+        rgOrdem = viewPopup.findViewById(R.id.rgOrdem);
+        this.popup = new AlertDialog.Builder(this)
+                .setPositiveButton("Salvar", this::onAlterarOrdem)
+                .setNegativeButton("Cancelar", null)
+                .setView(viewPopup)
+                .create();
+
         if (Permissoes.isPermissoesConcedidas(this, PERMISSOES)) {
             listarArquivos();
 
@@ -66,15 +104,25 @@ public class MainActivity extends AppCompatActivity {
                 this.uri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
                 File arquivo = new File(uri.getPath());
 
-                String extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(intent.getType());
+                String mimeType = intent.getType();
+                Toast.makeText(this, "Mime Type do arquivo recebido: " + mimeType, Toast.LENGTH_LONG).show();
+                String extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType);
                 String nome = arquivo.getName();
-                String nomeCompleto = nome + "." + extension;
+                String nomeCompleto = nome + (extension == null || extension.isEmpty() ? "" : ("." + extension));
 
                 edNomeArquivo.setText(nomeCompleto);
                 edNomeArquivo.setSelection(0, nome.length());
                 edNomeArquivo.requestFocus();
             }
         } else Permissoes.solicitarPermissoes(this, PERMISSOES);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main, menu);
+        menu.findItem(R.id.visualizarOculto).setChecked(this.showHidden);
+
+        return true;
     }
 
     private void listarArquivos() {
@@ -103,7 +151,6 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-
     private void mostrarTextoPastaVazia(boolean mostrar) {
         txtPastaVazia.setVisibility(mostrar ? View.VISIBLE : View.GONE);
     }
@@ -114,13 +161,41 @@ public class MainActivity extends AppCompatActivity {
         if (files != null) {
 
             for (File file : files) {
-                list.add(new Arquivo(file));
+                if (!file.isHidden() || this.showHidden) list.add(new Arquivo(file));
             }
         }
 
-        Collections.sort(list, (o1, o2) -> o1.getName().compareTo(o2.getName()));
+        ordenarListaArquivos(list);
 
         return list;
+    }
+
+    public void ordenarListaArquivos(List<Arquivo> lista) {
+        Collections.sort(lista, (file1, file2) -> {
+            Arquivo arquivo1 = ORDER_ASC.equals(orderDirection) ? file1 : file2;
+            Arquivo arquivo2 = ORDER_ASC.equals(orderDirection) ? file2 : file1;
+
+            String extension1 = arquivo1.getExtension() == null ? "" : arquivo1.getExtension();
+            String extension2 = arquivo2.getExtension() == null ? "" : arquivo2.getExtension();
+
+            int compareNome = arquivo1.getName().toLowerCase().compareTo(arquivo2.getName().toLowerCase());
+            int compareExtension = extension1.toLowerCase().compareTo(extension2.toLowerCase());
+            int compareSize = Long.compare(arquivo1.length(), arquivo2.length());
+            int compareModified = Long.compare(arquivo1.lastModified(), arquivo2.lastModified());
+
+            switch (this.orderBy) {
+                case ORDER_BY_NAME:
+                    return compareNome;
+                case ORDER_BY_TYPE:
+                    return compareExtension == 0 ? compareNome : compareExtension;
+                case ORDER_BY_SIZE:
+                    return compareSize == 0 ? compareNome : compareSize;
+                case ORDER_BY_MODIFIED:
+                    return compareModified == 0 ? compareNome : compareModified;
+            }
+
+            return 0;
+        });
     }
 
     public void atualizarListaArquivos(Arquivo directory) {
@@ -150,8 +225,12 @@ public class MainActivity extends AppCompatActivity {
 
             finish();
             Toast.makeText(this, "Arquivo salvo", Toast.LENGTH_LONG).show();
-        } catch (Exception e) {
+        } catch (FileNotFoundException e) {
             e.printStackTrace();
+            Toast.makeText(this, "Sem permissão para salvar neste local", Toast.LENGTH_LONG).show();
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Erro ao salvar: \n" + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -193,5 +272,50 @@ public class MainActivity extends AppCompatActivity {
     public void btHomeClick(View view) {
         diretorioAtual = new Arquivo(Environment.getExternalStorageDirectory());
         atualizarListaArquivos(diretorioAtual);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+
+        switch (item.getItemId()) {
+            case R.id.visualizarOculto:
+                boolean checked = item.isChecked();
+                item.setChecked(this.showHidden = (!checked));
+                atualizarListaArquivos(diretorioAtual);
+                salvarPreferencias();
+                break;
+            case R.id.menuOrdenar:
+                popup.show();
+                rgOrdenar.check(rgOrdenar.findViewWithTag(this.orderBy).getId());
+                rgOrdem.check(rgOrdem.findViewWithTag(this.orderDirection).getId());
+        }
+
+        return true;
+    }
+
+    public void onAlterarOrdem(DialogInterface dialog, int which) {
+        RadioButton rbOrdenar = rgOrdenar.findViewById(rgOrdenar.getCheckedRadioButtonId());
+        RadioButton rbOrdem = rgOrdem.findViewById(rgOrdem.getCheckedRadioButtonId());
+
+        this.orderBy = rbOrdenar.getTag().toString();
+        this.orderDirection = rbOrdem.getTag().toString();
+        atualizarListaArquivos(diretorioAtual);
+        salvarPreferencias();
+    }
+
+    private void salvarPreferencias() {
+        SharedPreferences preferences = getSharedPreferences(FILE_PREFS, Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = preferences.edit();
+
+        editor.putString("orderBy", this.orderBy).putString("orderDirection", this.orderDirection)
+                .putBoolean("showHidden", this.showHidden)
+                .apply();
+    }
+
+    private void carregarPreferencias() {
+        SharedPreferences preferences = getSharedPreferences(FILE_PREFS, Context.MODE_PRIVATE);
+        this.orderBy = preferences.getString("orderBy", ORDER_BY_NAME);
+        this.orderDirection = preferences.getString("orderDirection", ORDER_ASC);
+        this.showHidden = preferences.getBoolean("showHidden", false);
     }
 }

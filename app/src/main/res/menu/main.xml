@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <group android:menuCategory="alternative">
+        <item
+            android:id="@+id/menuOrdenar"
+            android:title="Ordenar por...">
+        </item>
+    </group>
+    <item
+        android:id="@+id/visualizarOculto"
+        android:title="Visualizar arquivos ocultos" android:checkable="true"/>
+</menu>
