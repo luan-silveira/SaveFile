@@ -19,12 +19,14 @@ import android.webkit.MimeTypeMap;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.DividerItemDecoration;
@@ -82,6 +84,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        ActionBar bar = getSupportActionBar();
 
         listViewArquivos = findViewById(R.id.listViewArquivos);
         edNomeArquivo = findViewById(R.id.edNomeArquivo);
@@ -162,6 +166,8 @@ public class MainActivity extends AppCompatActivity {
 
         btVoltarPasta = findViewById(R.id.btVoltarPasta);
 
+        mostrarCaminhoDiretorioAtualSubtitulo();
+
         adapterFile.setOnItemClickListener((position) -> {
             Arquivo file = adapterFile.getItemAtPosition(position);
             if (file.isDirectory()) {
@@ -227,6 +233,15 @@ public class MainActivity extends AppCompatActivity {
         this.arquivos = getArquivos(directory);
         adapterFile.atualizarLista(arquivos);
         mostrarTextoPastaVazia(arquivos.size() == 0);
+
+        mostrarCaminhoDiretorioAtualSubtitulo();
+    }
+
+    private void mostrarCaminhoDiretorioAtualSubtitulo(){
+        ActionBar bar = getSupportActionBar();
+        if (bar != null) {
+            bar.setSubtitle(this.diretorioAtual.getAbsolutePath());
+        }
     }
 
     @Override
@@ -341,5 +356,30 @@ public class MainActivity extends AppCompatActivity {
         this.orderBy = preferences.getString("orderBy", ORDER_BY_NAME);
         this.orderDirection = preferences.getString("orderDirection", ORDER_ASC);
         this.showHidden = preferences.getBoolean("showHidden", false);
+    }
+
+    public void btNovaPastaClick(View view) {
+        View vwLayout = LayoutInflater.from(this).inflate(R.layout.layout_nova_pasta_dialog, null);
+        EditText editText = vwLayout.findViewById(R.id.edNovaPasta);
+        new AlertDialog.Builder(this).setTitle("Nova Pasta")
+                .setView(vwLayout)
+                .setPositiveButton("OK", (dialogInterface, i) -> {
+                    String nomePasta = editText.getText().toString();
+                    Arquivo pasta = new Arquivo(this.diretorioAtual.getAbsolutePath() + '/' + nomePasta);
+                    if (pasta.exists()) {
+                        new AlertDialog.Builder(this).setTitle("Pasta existente")
+                                .setMessage(String.format("O diretório '%s' já existe neste local!", nomePasta))
+                                .setPositiveButton("OK", null).show();
+                        return;
+                    }
+
+                    if (!pasta.mkdir()){
+                        Toast.makeText(this, "Erro ao criar diretório neste local!", Toast.LENGTH_LONG).show();
+                    }
+
+                    atualizarListaArquivos(pasta);
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
     }
 }
