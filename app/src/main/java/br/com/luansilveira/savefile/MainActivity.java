@@ -1,16 +1,23 @@
 package br.com.luansilveira.savefile;
 
 import android.Manifest;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.hardware.usb.UsbConstants;
+import android.hardware.usb.UsbDevice;
+import android.hardware.usb.UsbManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.ArrayMap;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -24,14 +31,21 @@ import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.Toolbar;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.navigation.ui.AppBarConfiguration;
 import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.navigation.NavigationView;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -40,6 +54,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -47,9 +62,11 @@ import br.com.luansilveira.savefile.utils.AdapterFileRecycler;
 import br.com.luansilveira.savefile.utils.Arquivo;
 import br.com.luansilveira.savefile.utils.Permissoes;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
 
     public static final String[] PERMISSOES = {Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE};
+
+    private static final String ACTION_USB_PERMISSION = "br.com.luansilveira.savefile.ACTION_USB_PERMISSION";
 
     private final String TAG = "SaveFile";
     private final String FILE_PREFS = "filePrefs";
@@ -80,17 +97,78 @@ public class MainActivity extends AppCompatActivity {
     private RadioGroup rgOrdenar;
     private RadioGroup rgOrdem;
 
+    private DrawerLayout drawerLayout;
+    private NavigationView navigationView;
+
+    private UsbManager usbManager;
+    private PendingIntent permissionIntent;
+
+    private ArrayMap<Integer, Arquivo> listaArmazenamento = new ArrayMap<>();
+
+    private final BroadcastReceiver usbReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(action)) {
+
+                UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+                usbManager.requestPermission(device, permissionIntent);
+//                listarDispositivosUSB();
+            }
+
+            if (ACTION_USB_PERMISSION.equals(action)) {
+                synchronized (this) {
+                    UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+
+                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+                        if (device != null) {
+                            listarPastasArmazenamento();
+                        }
+                    }
+                }
+            }
+
+            if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) {
+                listarPastasArmazenamento();
+            }
+        }
+    };
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        ActionBar bar = getSupportActionBar();
-
         listViewArquivos = findViewById(R.id.listViewArquivos);
         edNomeArquivo = findViewById(R.id.edNomeArquivo);
         txtPastaVazia = findViewById(R.id.txtPastaVazia);
         listViewArquivos.setHasFixedSize(true);
+
+        usbManager = (UsbManager) getSystemService(USB_SERVICE);
+        permissionIntent = PendingIntent.getBroadcast(this, 1, new Intent(ACTION_USB_PERMISSION), 0);
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(ACTION_USB_PERMISSION);
+        filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
+        filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
+
+        registerReceiver(usbReceiver, filter);
+
+        ActionBar bar = getSupportActionBar();
+        if (bar != null) {
+            bar.setDisplayHomeAsUpEnabled(true);
+            bar.setDisplayShowHomeEnabled(true);
+        }
+
+        drawerLayout = findViewById(R.id.drawerLayout);
+
+        ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(this, drawerLayout, R.string.open_drawer, R.string.close_drawer);
+        drawerLayout.addDrawerListener(toggle);
+        toggle.syncState();
+
+        navigationView = findViewById(R.id.nav_view);
+        navigationView.setNavigationItemSelectedListener(this);
+
 
         carregarPreferencias();
 
@@ -106,6 +184,7 @@ public class MainActivity extends AppCompatActivity {
         btSalvar = findViewById(R.id.btSalvar);
 
         if (Permissoes.isPermissoesConcedidas(this, PERMISSOES)) {
+            listarPastasArmazenamento();
             listarArquivos();
 
             Intent intent = getIntent();
@@ -151,6 +230,41 @@ public class MainActivity extends AppCompatActivity {
         menu.findItem(R.id.visualizarOculto).setChecked(this.showHidden);
 
         return true;
+    }
+
+    private void listarPastasArmazenamento() {
+        Toast.makeText(this, "Atualizando pastas...", Toast.LENGTH_SHORT).show();
+        Menu menu = navigationView.getMenu();
+        menu.clear();
+        listaArmazenamento.clear();
+
+        menu.add(0, R.id.menuInterno, 0, "Armazenamento interno").setIcon(R.drawable.ic_folder);
+
+        int index = 0;
+
+        String armazenamentoSecundario = System.getenv("SECONDARY_STORAGE");
+        Arquivo fileSecundario = new Arquivo(armazenamentoSecundario);
+        if (armazenamentoSecundario != null && fileSecundario.exists() && Environment.isExternalStorageRemovable(fileSecundario)) {
+            listaArmazenamento.put(index++, fileSecundario);
+            menu.add(0, 1, 0, armazenamentoSecundario).setIcon(R.drawable.ic_folder);
+        }
+        File[] pastas = getExternalFilesDirs(null);
+        for (File pasta : pastas) {
+            String path = pasta.getAbsolutePath().split("/Android")[0];
+            if (!path.equals(Environment.getExternalStorageDirectory().getAbsolutePath())) {
+                listaArmazenamento.put(index++, new Arquivo(path));
+                menu.add(path).setIcon(R.drawable.ic_folder);
+            }
+        }
+
+        List<UsbDevice> listUsbDevices = new ArrayList<>(usbManager.getDeviceList().values());
+        for (UsbDevice device : listUsbDevices) {
+            if (device.getInterface(0).getInterfaceClass() != UsbConstants.USB_CLASS_MASS_STORAGE)
+                continue;
+
+            menu.add(device.getDeviceName()).setIcon(R.drawable.ic_folder);
+        }
+
     }
 
     private void listarArquivos() {
@@ -237,7 +351,7 @@ public class MainActivity extends AppCompatActivity {
         mostrarCaminhoDiretorioAtualSubtitulo();
     }
 
-    private void mostrarCaminhoDiretorioAtualSubtitulo(){
+    private void mostrarCaminhoDiretorioAtualSubtitulo() {
         ActionBar bar = getSupportActionBar();
         if (bar != null) {
             bar.setSubtitle(this.diretorioAtual.getAbsolutePath());
@@ -258,6 +372,11 @@ public class MainActivity extends AppCompatActivity {
         String filename = diretorioAtual.getAbsolutePath() + "/" + edNomeArquivo.getText().toString();
         try {
             File novoArquivo = new File(diretorioAtual, edNomeArquivo.getText().toString());
+            if (!novoArquivo.createNewFile()) {
+                Toast.makeText(this, "O arquivo já existe!", Toast.LENGTH_LONG).show();
+                return;
+            }
+
             FileOutputStream outputStream = new FileOutputStream(novoArquivo);
             outputStream.write(getBytes(uri));
             outputStream.close();
@@ -279,7 +398,8 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
-        btVoltarPastaClick(btVoltarPasta);
+        if (drawerLayout.isOpen()) drawerLayout.closeDrawer(GravityCompat.START);
+        else btVoltarPastaClick(btVoltarPasta);
     }
 
     public void btVoltarPastaClick(View view) {
@@ -309,14 +429,18 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void btHomeClick(View view) {
-        diretorioAtual = new Arquivo(Environment.getExternalStorageDirectory());
-        atualizarListaArquivos(diretorioAtual);
+        atualizarListaArquivos(new Arquivo(Environment.getExternalStorageDirectory()));
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
 
         switch (item.getItemId()) {
+
+            case android.R.id.home:
+                if (!drawerLayout.isOpen()) drawerLayout.openDrawer(GravityCompat.START);
+                else drawerLayout.closeDrawer(GravityCompat.START);
+
             case R.id.visualizarOculto:
                 boolean checked = item.isChecked();
                 item.setChecked(this.showHidden = (!checked));
@@ -329,7 +453,7 @@ public class MainActivity extends AppCompatActivity {
                 rgOrdem.check(rgOrdem.findViewWithTag(this.orderDirection).getId());
         }
 
-        return true;
+        return super.onOptionsItemSelected(item);
     }
 
     public void onAlterarOrdem(DialogInterface dialog, int which) {
@@ -373,7 +497,7 @@ public class MainActivity extends AppCompatActivity {
                         return;
                     }
 
-                    if (!pasta.mkdir()){
+                    if (!pasta.mkdir()) {
                         Toast.makeText(this, "Erro ao criar diretório neste local!", Toast.LENGTH_LONG).show();
                     }
 
@@ -381,5 +505,20 @@ public class MainActivity extends AppCompatActivity {
                 })
                 .setNegativeButton("Cancelar", null)
                 .show();
+    }
+
+    @Override
+    public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+        Arquivo arquivo;
+        if (item.getItemId() == R.id.menuInterno) {
+            arquivo = new Arquivo(Environment.getExternalStorageDirectory());
+        } else {
+            arquivo = new Arquivo(item.getTitle().toString());
+        }
+
+        atualizarListaArquivos(arquivo);
+
+        drawerLayout.closeDrawer(GravityCompat.START);
+        return true;
     }
 }
