@@ -32,6 +32,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AlertDialog;
@@ -63,6 +64,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     public static final String[] PERMISSOES = {Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE};
 
     private static final String ACTION_USB_PERMISSION = "br.com.luansilveira.savefile.ACTION_USB_PERMISSION";
+
+    private static final int REQUEST_CODE_STORAGE_FRAMEWORK = 2;
 
     private final String TAG = "SaveFile";
     private final String FILE_PREFS = "filePrefs";
@@ -365,8 +368,13 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
     public void btSalvarClick(View view) {
         String filename = diretorioAtual.getAbsolutePath() + "/" + edNomeArquivo.getText().toString();
+        salvarArquivo(filename, false);
+    }
+
+
+    public void salvarArquivo(String filename, boolean viaStorageFramework) {
         try {
-            File novoArquivo = new File(diretorioAtual, edNomeArquivo.getText().toString());
+            File novoArquivo = new File(filename);
             if (!novoArquivo.createNewFile()) {
                 Toast.makeText(this, "O arquivo já existe!", Toast.LENGTH_LONG).show();
                 return;
@@ -383,12 +391,30 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             Toast.makeText(this, "Sem permissão para salvar neste local", Toast.LENGTH_LONG).show();
         } catch (IOException e) {
             e.printStackTrace();
-            Toast.makeText(this, "Erro ao salvar: \n" + e.getMessage(), Toast.LENGTH_LONG).show();
+            if (!viaStorageFramework) {
+                new AlertDialog.Builder(this).setMessage("O sistema não permite salvar neste local. \nEscolha o local de armazenamento externo a seguir")
+                        .setNegativeButton("Cancelar", null)
+                        .setPositiveButton("Ok", (dialogInterface, i) -> startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), REQUEST_CODE_STORAGE_FRAMEWORK))
+                        .show();
+            } else {
+
+                Toast.makeText(this, "Erro ao salvar: \n" + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
         }
     }
 
     public void btCancelarClick(View view) {
         finish();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        if (requestCode == REQUEST_CODE_STORAGE_FRAMEWORK && resultCode == RESULT_OK) {
+            String filename = data.getData().getPath() + "/" + edNomeArquivo.getText().toString();
+            salvarArquivo(filename, true);
+        }
+
+        super.onActivityResult(requestCode, resultCode, data);
     }
 
     @Override
